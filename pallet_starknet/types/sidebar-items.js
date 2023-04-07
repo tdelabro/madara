@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OffchainWorkerError","RawOrigin"],"struct":["EthBlockNumber","EthLogs","Message","NumberRes"],"type":["ContractStorageKeyWrapper","NonceWrapper","StarkFeltWrapper","StorageKey"]};

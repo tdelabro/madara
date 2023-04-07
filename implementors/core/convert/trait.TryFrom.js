@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"madara_runtime":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;<a class=\"enum\" href=\"madara_runtime/enum.OriginCaller.html\" title=\"enum madara_runtime::OriginCaller\">OriginCaller</a>&gt; for Origin&lt;<a class=\"struct\" href=\"madara_runtime/struct.Runtime.html\" title=\"struct madara_runtime::Runtime\">Runtime</a>&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
