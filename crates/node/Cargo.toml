@@ -25,6 +25,7 @@ futures = { workspace = true, features = ["thread-pool"] }
 
 sc-cli = { workspace = true }
 sp-core = { workspace = true }
+sp-consensus = { workspace = true }
 sc-executor = { workspace = true }
 sc-service = { workspace = true }
 sc-telemetry = { workspace = true }
@@ -69,10 +70,14 @@ mc-db = { path = "../client/db" }
 mc-rpc = { path = "../client/rpc" }
 mc-storage = { path = "../client/storage" }
 mc-mapping-sync = { path = "../client/mapping-sync" }
+mc-consensus = { workspace = true }
 pallet-starknet = { path = "../pallets/starknet" }
 mp-starknet = { workspace = true }
-blockifier = {workspace = true}
-hex = {workspace = true}
+mp-digest-log = { workspace = true }
+blockifier = { workspace = true }
+hex = { workspace = true }
+async-trait = "0.1.57"
+thiserror = { workspace = true }
 
 # CLI-specific dependencies
 try-runtime-cli = { optional = true, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }

@@ -19,6 +19,8 @@ use crate::execution::ContractAddressWrapper;
 pub struct Header {
     /// The hash of this block’s parent.
     pub parent_block_hash: H256,
+    /// Parent block State Commitment
+    pub parent_block_state_commitment: H256,
     /// The number (height) of this block.
     pub block_number: U256,
     /// The state commitment after this block.
@@ -47,6 +49,7 @@ impl Header {
     #[must_use]
     pub fn new(
         parent_block_hash: H256,
+        parent_block_state_commitment: H256,
         block_number: U256,
         global_state_root: U256,
         sequencer_address: ContractAddressWrapper,
@@ -60,6 +63,7 @@ impl Header {
     ) -> Self {
         Self {
             parent_block_hash,
+            parent_block_state_commitment,
             block_number,
             global_state_root,
             sequencer_address,

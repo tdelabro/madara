@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use mc_storage::OverrideHandle;
-use mp_digest_log::{FindLogError, Hashes, Log, PostLog};
+use mp_digest_log::{FindLogError, Hashes, Log};
 use pallet_starknet::runtime_api::StarknetRuntimeApi;
 use sc_client_api::backend::{Backend, StorageProvider};
 use sp_api::ProvideRuntimeApi;
@@ -30,27 +30,26 @@ where
             };
 
             match log {
-                Log::Post(post_log) => match post_log {
-                    PostLog::BlockHash(expect_eth_block_hash) => {
-                        let starknet_block =
-                            overrides.for_block_hash(client, substrate_block_hash).current_block(substrate_block_hash);
-                        match starknet_block {
-                            Some(block) => {
-                                let got_eth_block_hash = block.header().hash();
-                                if got_eth_block_hash != expect_eth_block_hash {
-                                    Err(format!(
-                                        "Ethereum block hash mismatch: frontier consensus digest \
-                                         ({expect_eth_block_hash:?}), db state ({got_eth_block_hash:?})"
-                                    ))
-                                } else {
-                                    let mapping_commitment = gen_from_block(block);
-                                    backend.mapping().write_hashes(mapping_commitment)
-                                }
+                Log::Post(post_log) => {
+                    let expect_eth_block_hash = post_log.block_hash;
+                    let starknet_block =
+                        overrides.for_block_hash(client, substrate_block_hash).current_block(substrate_block_hash);
+                    match starknet_block {
+                        Some(block) => {
+                            let got_eth_block_hash = block.header().hash();
+                            if got_eth_block_hash != expect_eth_block_hash {
+                                Err(format!(
+                                    "Ethereum block hash mismatch: frontier consensus digest \
+                                     ({expect_eth_block_hash:?}), db state ({got_eth_block_hash:?})"
+                                ))
+                            } else {
+                                let mapping_commitment = gen_from_block(block);
+                                backend.mapping().write_hashes(mapping_commitment)
                             }
-                            None => backend.mapping().write_none(substrate_block_hash),
                         }
+                        None => backend.mapping().write_none(substrate_block_hash),
                     }
-                },
+                }
             }
         }
         Err(FindLogError::NotFound) => backend.mapping().write_none(substrate_block_hash),

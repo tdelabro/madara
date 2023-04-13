@@ -101,6 +101,7 @@ mc-db = { path = "crates/client/db" }
 mc-storage = { path = "crates/client/storage" }
 mc-rpc = { path = "crates/client/rpc" }
 mc-rpc-core = { path = "crates/client/rpc-core" }
+mc-consensus = { path = "crates/client/consensus" }
 
 # Starknet dependencies
 # Cairo Virtual Machine
@@ -127,3 +128,4 @@ futures = { version = "0.3.28", default-features = false }
 serde = { version = "1.0.136", default-features = false }
 serde_json = { version = "1.0.95", default-features = false }
 bitvec = { version = "0.17.4", default-features = false }
+thiserror = "1.0.40"

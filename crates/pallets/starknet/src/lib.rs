@@ -655,8 +655,11 @@ pub mod pallet {
             let protocol_version = None;
             let extra_data = None;
 
+            let parent_block_state_commitment = Default::default();
+
             let block = StarknetBlock::new(StarknetHeader::new(
                 parent_block_hash,
+                parent_block_state_commitment,
                 block_number,
                 global_state_root,
                 sequencer_address,
@@ -674,8 +677,10 @@ pub mod pallet {
             BlockHash::<T>::insert(block_number, block.header().hash());
             Pending::<T>::kill();
 
-            let digest = DigestItem::Consensus(MADARA_ENGINE_ID, PostLog::BlockHash(block.header().hash()).encode());
-            frame_system::Pallet::<T>::deposit_log(digest);
+            frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
+                MADARA_ENGINE_ID,
+                PostLog { block_hash: block.header().hash(), parent_block_state_commitment }.encode(),
+            ));
         }
 
         /// Associate a contract class hash with a contract class info

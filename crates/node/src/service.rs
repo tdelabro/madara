@@ -7,6 +7,7 @@ use futures::future;
 use futures::prelude::*;
 use madara_runtime::opaque::Block;
 use madara_runtime::{self, RuntimeApi};
+use mc_consensus::MadaraBlockImport;
 use mc_mapping_sync::MappingSyncWorker;
 use mc_storage::overrides_handle;
 use sc_client_api::{BlockBackend, BlockchainEvents};
@@ -17,6 +18,7 @@ use sc_keystore::LocalKeystore;
 use sc_service::error::Error as ServiceError;
 use sc_service::{Configuration, TaskManager, WarpSyncParams};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sp_api::TransactionFor;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 
 use crate::rpc::StarknetDeps;
@@ -45,6 +47,7 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 pub(crate) type FullClient = sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+type BoxBlockImport<Client> = sc_consensus::BoxBlockImport<Block, TransactionFor<Client, Block>>;
 
 #[allow(clippy::type_complexity)]
 pub fn new_partial(
@@ -57,7 +60,7 @@ pub fn new_partial(
         sc_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
-            sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
+            BoxBlockImport<FullClient>,
             sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
             Option<Telemetry>,
             Arc<MadaraBackend>,
@@ -116,13 +119,15 @@ pub fn new_partial(
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
+    let madara_block_import = MadaraBlockImport::new(grandpa_block_import.clone(), client.clone());
+
     let madara_backend = Arc::new(MadaraBackend::open(&config.database, &db_config_dir(config))?);
 
     let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
-        block_import: grandpa_block_import.clone(),
-        justification_import: Some(Box::new(grandpa_block_import.clone())),
+        block_import: madara_block_import.clone(),
+        justification_import: Some(Box::new(grandpa_block_import)),
         client: client.clone(),
         create_inherent_data_providers: move |_, ()| async move {
             let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
@@ -149,7 +154,7 @@ pub fn new_partial(
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (grandpa_block_import, grandpa_link, telemetry, madara_backend),
+        other: (Box::new(madara_block_import), grandpa_link, telemetry, madara_backend),
     })
 }
 

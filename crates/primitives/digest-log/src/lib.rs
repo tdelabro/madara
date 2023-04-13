@@ -33,10 +33,11 @@ pub enum Log {
 }
 
 #[derive(Decode, Encode, Clone, PartialEq, Eq)]
-pub enum PostLog {
-    /// Ethereum block hash.
-    #[codec(index = 3)]
-    BlockHash(H256),
+pub struct PostLog {
+    /// Starknet block hash.
+    pub block_hash: H256,
+    /// Starknet block hash.
+    pub parent_block_state_commitment: H256,
 }
 
 #[derive(Decode, Encode, Clone, PartialEq, Eq)]
@@ -56,6 +57,18 @@ pub enum FindLogError {
     NotFound,
     MultipleLogs,
 }
+
+impl core::fmt::Display for FindLogError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            FindLogError::NotFound => write!(f, "Log not found"),
+            FindLogError::MultipleLogs => write!(f, "Multiple logs found"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for FindLogError {}
 
 pub fn find_post_log(digest: &Digest) -> Result<PostLog, FindLogError> {
     _find_log(digest, OpaqueDigestItemId::Consensus(&MADARA_ENGINE_ID))

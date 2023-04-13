@@ -4092,6 +4092,7 @@ dependencies = [
 name = "madara"
 version = "0.1.0-dev"
 dependencies = [
+ "async-trait",
  "blockifier",
  "clap",
  "frame-benchmarking",
@@ -4101,10 +4102,12 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "madara-runtime",
+ "mc-consensus",
  "mc-db",
  "mc-mapping-sync",
  "mc-rpc",
  "mc-storage",
+ "mp-digest-log",
  "mp-starknet",
  "pallet-starknet",
  "pallet-transaction-payment",
@@ -4125,6 +4128,7 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
+ "sp-consensus",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
@@ -4134,6 +4138,7 @@ dependencies = [
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "thiserror",
  "try-runtime-cli",
 ]
 
@@ -4202,6 +4207,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "add85d4dd35074e6fedc608f8c8f513a3548619a9024b751949ef0e8e45a4d84"
 dependencies = [
  "rawpointer",
+]
+
+[[package]]
+name = "mc-consensus"
+version = "2.0.0-dev"
+dependencies = [
+ "async-trait",
+ "mp-digest-log",
+ "sc-consensus",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-runtime",
+ "thiserror",
 ]
 
 [[package]]
