@@ -77,6 +77,14 @@ impl pallet_starknet::Config for Test {
     type TimestampProvider = Timestamp;
 }
 
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();

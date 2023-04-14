@@ -17,15 +17,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::marker::PhantomData;
+use std::ops::Sub;
 use std::sync::Arc;
 
 use mp_digest_log::{find_post_log, FindLogError};
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
-use sp_api::{HeaderT, ProvideRuntimeApi};
+use sp_api::{Encode, HeaderT, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::Error as ConsensusError;
-use sp_core::H256;
-use sp_runtime::traits::Block as BlockT;
+use sp_core::{blake2_256, H256, U256};
+use sp_runtime::traits::{Block as BlockT, UniqueSaturatedInto};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -33,8 +34,11 @@ pub enum Error {
     MultipleRuntimeLogs,
     #[error("Runtime Starknet log not found, rejecting!")]
     NoRuntimeLog,
-    #[error("Invalid parent block state commitment, expected: {expected} got {recieved}, rejecting!")]
-    InvalidParentBlockStateCommitment { expected: H256, recieved: H256 },
+    #[error(
+        "Invalid parent block state commitment for block number {block_number}, expected: {expected:#?} got \
+         {recieved:#?}, rejecting!"
+    )]
+    InvalidParentBlockStateCommitment { block_number: U256, expected: H256, recieved: H256 },
 }
 
 impl From<Error> for String {
@@ -104,11 +108,19 @@ where
         block: BlockImportParams<B, Self::Transaction>,
     ) -> Result<ImportResult, Self::Error> {
         let digest = block.header.digest();
+        let block_number = U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(*block.header.number()));
+
         let logs = find_post_log(digest).map_err(|e| Self::Error::Other(Box::new(e)))?;
 
-        if !logs.parent_block_state_commitment.is_zero() {
+        // TODO:  start computing it when the parent block is recieved
+        // Put the logic in the crates client/mapping-sync and store the result in client/db
+        let expected_state_commitment =
+            if block_number.is_zero() { H256::zero() } else { blake2_256(&block_number.sub(1).encode()).into() };
+
+        if logs.parent_block_state_commitment != expected_state_commitment {
             return Err(Self::Error::Other(Box::new(Error::InvalidParentBlockStateCommitment {
-                expected: H256::zero(),
+                block_number,
+                expected: expected_state_commitment,
                 recieved: logs.parent_block_state_commitment,
             })));
         }

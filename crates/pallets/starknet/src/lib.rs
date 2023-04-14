@@ -62,6 +62,7 @@ pub mod pallet {
     use alloc::string::{String, ToString};
     use alloc::vec;
     use alloc::vec::Vec;
+    use core::ops::Sub;
 
     use blockifier::execution::contract_class::ContractClass;
     use blockifier::execution::entry_point::CallInfo;
@@ -80,6 +81,7 @@ pub mod pallet {
     };
     use serde_json::from_str;
     use sp_core::{H256, U256};
+    use sp_io::hashing::blake2_256;
     use sp_runtime::offchain::http;
     use sp_runtime::traits::UniqueSaturatedInto;
     use sp_runtime::DigestItem;
@@ -95,6 +97,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::sp_runtime::offchain::storage::StorageValueRef;
     use frame_support::traits::{OriginTrait, Time};
+    use frame_system::offchain::SubmitTransaction;
     use frame_system::pallet_prelude::*;
 
     use super::*;
@@ -106,7 +109,7 @@ pub mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + frame_system::offchain::SendTransactionTypes<Call<Self>> {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// How Starknet state root is calculated.
@@ -115,6 +118,8 @@ pub mod pallet {
         type SystemHash: Hasher;
         /// The time idk what.
         type TimestampProvider: Time;
+        // Signer authority
+        // type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
     }
 
     /// The Starknet pallet hooks.
@@ -124,11 +129,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         /// The block is being finalized.
-        fn on_finalize(_n: T::BlockNumber) {
+        fn on_finalize(n: T::BlockNumber) {
             // Create a new Starknet block and store it.
-            <Pallet<T>>::store_block(U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(
-                frame_system::Pallet::<T>::block_number(),
-            )));
+            <Pallet<T>>::store_block(U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(n)));
         }
 
         /// The block is being initialized. Implement to have something happen.
@@ -157,6 +160,14 @@ pub mod pallet {
                     _ => log!(error, "Failed to execute L1 messages: {:?}", err),
                 },
             }
+
+            let state_commitment =
+                Self::compute_state_commitment(U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(n)));
+            let call = Call::set_parent_block_state_commitment { state_commitment };
+
+            if SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).is_err() {
+                log::error!("Failed to submit unsigned `set_parent_block_state_commitment` call");
+            };
         }
     }
 
@@ -214,6 +225,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn fee_token_address)]
     pub(super) type FeeTokenAddress<T: Config> = StorageValue<_, ContractAddressWrapper, ValueQuery>;
+
+    /// The previous block state commitment
+    #[pallet::storage]
+    #[pallet::getter(fn parent_block_state_commitment)]
+    pub(super) type ParentBlockStateCommitment<T: Config> = StorageValue<_, H256>;
 
     /// Starknet genesis configuration.
     #[pallet::genesis_config]
@@ -313,6 +329,7 @@ pub mod pallet {
         StateReaderError,
         EmitEventError,
         StateDiffError,
+        CannotSetParentBlockStateCommitmentTwice,
     }
 
     /// The Starknet pallet external functions.
@@ -582,6 +599,22 @@ pub mod pallet {
             });
             Ok(())
         }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight(0)]
+        pub fn set_parent_block_state_commitment(origin: OriginFor<T>, state_commitment: H256) -> DispatchResult {
+            ensure_none(origin)?;
+
+            ParentBlockStateCommitment::<T>::try_mutate(|opt_value| match opt_value {
+                Some(_) => Err(Error::<T>::CannotSetParentBlockStateCommitmentTwice),
+                None => {
+                    *opt_value = Some(state_commitment);
+                    Ok(())
+                }
+            })?;
+
+            Ok(())
+        }
     }
 
     /// The Starknet pallet internal functions.
@@ -655,7 +688,14 @@ pub mod pallet {
             let protocol_version = None;
             let extra_data = None;
 
-            let parent_block_state_commitment = Default::default();
+            let parent_block_state_commitment = if block_number.is_zero() {
+                H256::zero()
+            } else {
+                ParentBlockStateCommitment::<T>::take().unwrap_or_else(|| {
+                    log!(info, "store starknet block: parent block' state commitment missing. Computing it now");
+                    Self::compute_state_commitment(block_number.sub(1))
+                })
+            };
 
             let block = StarknetBlock::new(StarknetHeader::new(
                 parent_block_hash,
@@ -928,6 +968,46 @@ pub mod pallet {
                 })?;
             }
             Ok(())
+        }
+
+        pub(crate) fn compute_state_commitment(block_number: U256) -> H256 {
+            // TODO: replace by the actual state commitment computation
+            blake2_256(&block_number.encode()).into()
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        /// Validate unsigned call to this module.
+        ///
+        /// By default unsigned transactions are disallowed, but implementing the validator
+        /// here we make sure that some particular calls (the ones produced by offchain worker)
+        /// are being whitelisted and marked as valid.
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            if source == TransactionSource::External {
+                return InvalidTransaction::Call.into();
+            }
+
+            // TODO: have the runtime provide the standard priority to the pallet,
+            // and compute a value from there
+            const UNSIGNED_TXS_PRIORITY: TransactionPriority = u64::MAX;
+            let valid_tx = |provide| {
+                ValidTransaction::with_tag_prefix("my-pallet")
+				.priority(UNSIGNED_TXS_PRIORITY)
+				.and_provides([&provide])
+				.longevity(1) // Only valid for this block
+				.propagate(false) // Should not be gossiped
+				.build()
+            };
+
+            match call {
+                Call::set_parent_block_state_commitment { .. } => {
+                    valid_tx(b"set_parent_block_state_commitment".to_vec())
+                }
+                _ => InvalidTransaction::Call.into(),
+            }
         }
     }
 }

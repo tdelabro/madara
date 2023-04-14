@@ -43,6 +43,7 @@ fn given_normal_conditions_when_current_block_then_returns_correct_block() {
             block_number: U256::from(2),
             parent_block_hash: H256::from_str("0x1c2b97b7b9ea91c2cde45bfb115058628c2e1c7aa3fecb51a0cdaf256dc8a310")
                 .unwrap(),
+            parent_block_state_commitment: Starknet::compute_state_commitment(U256::one()),
             transaction_count: 1,
             // This expected value has been computed in the sequencer test (commitment on a tx hash 0 without
             // signature).
