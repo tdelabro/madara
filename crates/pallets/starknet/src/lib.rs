@@ -27,10 +27,6 @@ pub mod runtime_api;
 #[cfg(test)]
 mod tests;
 
-// TODO: Uncomment when benchmarking is implemented.
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 /// Make this configurable.
 type MaxTransactionsPendingBlock = ConstU32<1073741824>;
 
