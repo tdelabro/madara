@@ -1,8 +1,10 @@
+mod mock;
 use core::str::FromStr;
 
 use blockifier::test_utils::{get_contract_class, ACCOUNT_CONTRACT_PATH, ERC20_CONTRACT_PATH};
 use frame_support::{assert_err, assert_ok, bounded_vec, BoundedVec};
 use hex::FromHex;
+use mock::*;
 use mp_starknet::block::Header as StarknetHeader;
 use mp_starknet::crypto::commitment;
 use mp_starknet::crypto::hash::pedersen::PedersenHasher;
@@ -12,7 +14,6 @@ use mp_starknet::transaction::types::{EventWrapper, Transaction};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 
-use crate::mock::*;
 use crate::types::Message;
 use crate::{Error, Event};
 
@@ -76,7 +77,7 @@ fn given_hardcoded_contract_run_invoke_tx_fails_sender_not_deployed() {
         let transaction =
             Transaction { version: 1_u8, sender_address: contract_address_bytes, ..Transaction::default() };
 
-        assert_err!(Starknet::invoke(none_origin, transaction), Error::<Test>::AccountNotDeployed);
+        assert_err!(Starknet::invoke(none_origin, transaction), Error::<TestRuntime>::AccountNotDeployed);
     })
 }
 
@@ -88,10 +89,10 @@ fn given_hardcoded_contract_run_invoke_tx_fails_invalid_tx_version() {
 
         let none_origin = RuntimeOrigin::none();
 
-        let json_content: &str = include_str!("../../../../ressources/transactions/invoke_invalid_version.json");
+        let json_content: &str = include_str!("../../../../../ressources/transactions/invoke_invalid_version.json");
         let transaction = transaction_from_json(json_content, &[]).expect("Failed to create Transaction from JSON");
 
-        assert_err!(Starknet::invoke(none_origin, transaction), Error::<Test>::TransactionExecutionFailed);
+        assert_err!(Starknet::invoke(none_origin, transaction), Error::<TestRuntime>::TransactionExecutionFailed);
     });
 }
 
@@ -103,7 +104,7 @@ fn given_hardcoded_contract_run_invoke_tx_then_it_works() {
 
         let none_origin = RuntimeOrigin::none();
 
-        let json_content: &str = include_str!("../../../../ressources/transactions/invoke.json");
+        let json_content: &str = include_str!("../../../../../ressources/transactions/invoke.json");
         let transaction = transaction_from_json(json_content, &[]).expect("Failed to create Transaction from JSON");
 
         let tx = Message {
@@ -131,7 +132,7 @@ fn given_hardcoded_contract_run_invoke_tx_then_event_is_emitted() {
 
         let none_origin = RuntimeOrigin::none();
 
-        let json_content: &str = include_str!("../../../../ressources/transactions/invoke_emit_event.json");
+        let json_content: &str = include_str!("../../../../../ressources/transactions/invoke_emit_event.json");
         let transaction = transaction_from_json(json_content, &[]).expect("Failed to create Transaction from JSON");
 
         assert_ok!(Starknet::invoke(none_origin, transaction));
@@ -170,7 +171,7 @@ fn given_hardcoded_contract_run_storage_read_and_write_it_works() {
 
         let none_origin = RuntimeOrigin::none();
 
-        let json_content: &str = include_str!("../../../../ressources/transactions/storage_read_write.json");
+        let json_content: &str = include_str!("../../../../../ressources/transactions/storage_read_write.json");
         let transaction =
             transaction_from_json(json_content, ACCOUNT_CONTRACT_PATH).expect("Failed to create Transaction from JSON");
 
@@ -253,7 +254,7 @@ fn given_contract_run_deploy_account_tx_twice_fails() {
         assert_ok!(Starknet::deploy_account(none_origin.clone(), transaction.clone()));
         // Check that the account was created
         assert_eq!(Starknet::contract_class_hash_by_address(test_addr), account_class_hash);
-        assert_err!(Starknet::deploy_account(none_origin, transaction), Error::<Test>::AccountAlreadyDeployed);
+        assert_err!(Starknet::deploy_account(none_origin, transaction), Error::<TestRuntime>::AccountAlreadyDeployed);
     });
 }
 
@@ -282,7 +283,10 @@ fn given_contract_run_deploy_account_tx_undeclared_then_it_fails() {
             ..Transaction::default()
         };
 
-        assert_err!(Starknet::deploy_account(none_origin, transaction), Error::<Test>::TransactionExecutionFailed);
+        assert_err!(
+            Starknet::deploy_account(none_origin, transaction),
+            Error::<TestRuntime>::TransactionExecutionFailed
+        );
     });
 }
 
@@ -314,7 +318,7 @@ fn given_contract_declare_tx_works_once_not_twice() {
         // Cannot declare a class with None
         assert_err!(
             Starknet::declare(none_origin.clone(), transaction.clone()),
-            Error::<Test>::ContractClassMustBeSpecified
+            Error::<TestRuntime>::ContractClassMustBeSpecified
         );
 
         transaction.contract_class = Some(erc20_class.clone());
@@ -322,7 +326,7 @@ fn given_contract_declare_tx_works_once_not_twice() {
         assert_ok!(Starknet::declare(none_origin.clone(), transaction.clone()));
         // TODO: Uncomment once we have ABI support
         // assert_eq!(Starknet::contract_class_by_class_hash(erc20_class_hash), erc20_class);
-        assert_err!(Starknet::declare(none_origin, transaction), Error::<Test>::ClassHashAlreadyDeclared);
+        assert_err!(Starknet::declare(none_origin, transaction), Error::<TestRuntime>::ClassHashAlreadyDeclared);
     });
 }
 

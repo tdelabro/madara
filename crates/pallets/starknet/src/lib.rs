@@ -25,9 +25,6 @@ pub mod state_root;
 pub mod runtime_api;
 
 #[cfg(test)]
-mod mock;
-
-#[cfg(test)]
 mod tests;
 
 // TODO: Uncomment when benchmarking is implemented.

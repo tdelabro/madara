@@ -13,8 +13,8 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::StarknetApiError;
 use {crate as pallet_starknet, frame_system as system};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const ARGENT_PROXY_CLASS_HASH_V0: &str = "0x025ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918";
 pub const ARGENT_ACCOUNT_CLASS_HASH_V0: &str = "0x033434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2";
@@ -24,7 +24,7 @@ pub const TEST_ACCOUNT_SALT: &str = "0x0780f72e33c1508df24d8f00a96ecc6e08a850ecb
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
+    pub enum TestRuntime where
         Block = Block,
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
     }
 );
 
-impl pallet_timestamp::Config for Test {
+impl pallet_timestamp::Config for TestRuntime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = ();
@@ -43,7 +43,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl system::Config for Test {
+impl system::Config for TestRuntime {
     type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
@@ -70,14 +70,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_starknet::Config for Test {
+impl pallet_starknet::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type StateRoot = pallet_starknet::state_root::IntermediateStateRoot<Self>;
     type SystemHash = mp_starknet::crypto::hash::pedersen::PedersenHasher;
     type TimestampProvider = Timestamp;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
     RuntimeCall: From<C>,
 {
@@ -87,7 +87,7 @@ where
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     // ARGENT CLASSES
     let proxy_class_hash = <[u8; 32]>::from_hex(ARGENT_PROXY_CLASS_HASH_V0.strip_prefix("0x").unwrap()).unwrap();
@@ -99,10 +99,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         <[u8; 32]>::from_hex(BLOCKIFIER_ACCOUNT_CLASS.strip_prefix("0x").unwrap()).unwrap();
 
     // TEST CLASSES
-    let argent_proxy_class = get_contract_class(include_bytes!("../../../../ressources/argent_proxy_v0.json"));
-    let argent_account_class = get_contract_class(include_bytes!("../../../../ressources/argent_account_v0.json"));
-    let test_class = get_contract_class(include_bytes!("../../../../ressources/test.json"));
-    let l1_handler_class = get_contract_class(include_bytes!("../../../../ressources/l1_handler.json"));
+    let argent_proxy_class = get_contract_class(include_bytes!("../../../../../ressources/argent_proxy_v0.json"));
+    let argent_account_class = get_contract_class(include_bytes!("../../../../../ressources/argent_account_v0.json"));
+    let test_class = get_contract_class(include_bytes!("../../../../../ressources/test.json"));
+    let l1_handler_class = get_contract_class(include_bytes!("../../../../../ressources/l1_handler.json"));
     let blockifier_account_class = get_contract_class(ACCOUNT_CONTRACT_PATH);
 
     // ACCOUNT CONTRACT
@@ -123,7 +123,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let fee_token_address =
         <[u8; 32]>::from_hex("00000000000000000000000000000000000000000000000000000000000000AA").unwrap();
 
-    pallet_starknet::GenesisConfig::<Test> {
+    pallet_starknet::GenesisConfig::<TestRuntime> {
         contracts: vec![
             (account_addr.into(), proxy_class_hash),
             (other_contract_address_bytes, other_class_hash_bytes),
