@@ -193,24 +193,120 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
-</pre><pre class="rust"><code><span class="kw">use </span>blockifier::test_utils::{get_contract_class, ACCOUNT_CONTRACT_PATH};
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
+
+<span class="kw">use </span>blockifier::test_utils::{get_contract_class, ACCOUNT_CONTRACT_PATH};
 <span class="kw">use </span>hex::FromHex;
 <span class="kw">use </span>madara_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig,
-    WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, EnableManualSeal, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
+    SystemConfig, WASM_BINARY,
 };
 <span class="kw">use </span>mp_starknet::execution::ContractClassWrapper;
 <span class="kw">use </span>sc_service::ChainType;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>sp_core::{sr25519, Pair, Public};
+<span class="kw">use </span>sp_core::storage::Storage;
+<span class="kw">use </span>sp_core::{sr25519, Pair, Public, H256, U256};
 <span class="kw">use </span>sp_runtime::traits::{IdentifyAccount, Verify};
+<span class="kw">use </span>sp_state_machine::BasicExternalities;
 
 <span class="comment">// The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &amp;str = &quot;wss://telemetry.polkadot.io/submit/&quot;;
 
 </span><span class="doccomment">/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 </span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;GenesisConfig&gt;;
+
+<span class="doccomment">/// Specialized `ChainSpec` for development.
+</span><span class="kw">pub type </span>DevChainSpec = sc_service::GenericChainSpec&lt;DevGenesisExt&gt;;
+
+<span class="doccomment">/// Extension for the dev genesis config to support a custom changes to the genesis state.
+</span><span class="attr">#[derive(Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>DevGenesisExt {
+    <span class="doccomment">/// Genesis config.
+    </span>genesis_config: GenesisConfig,
+    <span class="doccomment">/// The flag that if enable manual-seal mode.
+    </span>enable_manual_seal: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+}
+
+<span class="doccomment">/// If enable_manual_seal is true, then the runtime storage variable EnableManualSeal will be set to
+/// true. This is just a common way to pass information from the chain spec to the runtime.
+</span><span class="kw">impl </span>sp_runtime::BuildStorage <span class="kw">for </span>DevGenesisExt {
+    <span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>Storage) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        BasicExternalities::execute_with_storage(storage, || {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(enable_manual_seal) = <span class="kw-2">&amp;</span><span class="self">self</span>.enable_manual_seal {
+                EnableManualSeal::set(enable_manual_seal);
+            }
+        });
+        <span class="self">self</span>.genesis_config.assimilate_storage(storage)
+    }
+}
 
 <span class="doccomment">/// Generate a crypto pair from seed.
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
@@ -232,39 +328,42 @@
     (get_from_seed::&lt;AuraId&gt;(s), get_from_seed::&lt;GrandpaId&gt;(s))
 }
 
-<span class="kw">pub fn </span>development_config() -&gt; <span class="prelude-ty">Result</span>&lt;ChainSpec, String&gt; {
+<span class="kw">pub fn </span>development_config(enable_manual_seal: <span class="prelude-ty">Option</span>&lt;bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;DevChainSpec, String&gt; {
     <span class="kw">let </span>wasm_binary = WASM_BINARY.ok_or_else(|| <span class="string">&quot;Development wasm not available&quot;</span>.to_string())<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(ChainSpec::from_genesis(
+    <span class="prelude-val">Ok</span>(DevChainSpec::from_genesis(
         <span class="comment">// Name
         </span><span class="string">&quot;Development&quot;</span>,
         <span class="comment">// ID
         </span><span class="string">&quot;dev&quot;</span>,
         ChainType::Development,
         <span class="kw">move </span>|| {
-            testnet_genesis(
-                wasm_binary,
-                <span class="comment">// Initial PoA authorities
-                </span><span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
-                <span class="comment">// Sudo account
-                </span>get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-                <span class="comment">// Pre-funded accounts
-                </span><span class="macro">vec!</span>[
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-                    get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
-                ],
-                <span class="bool-val">true</span>,
-            )
+            DevGenesisExt {
+                genesis_config: testnet_genesis(
+                    wasm_binary,
+                    <span class="comment">// Initial PoA authorities
+                    </span><span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
+                    <span class="comment">// Sudo account
+                    </span>get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+                    <span class="comment">// Pre-funded accounts
+                    </span><span class="macro">vec!</span>[
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
+                        get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+                    ],
+                    <span class="bool-val">true</span>,
+                ),
+                enable_manual_seal,
+            }
         },
         <span class="comment">// Bootnodes
         </span><span class="macro">vec!</span>[],
@@ -337,21 +436,31 @@
     _enable_println: bool,
 ) -&gt; GenesisConfig {
     <span class="kw">let </span>account_class = get_contract_class(ACCOUNT_CONTRACT_PATH);
-    <span class="kw">let </span>test_class = get_contract_class(<span class="macro">include_bytes!</span>(<span class="string">&quot;../../../ressources/test.json&quot;</span>));
+
+    <span class="kw">let </span>test_class = get_contract_class(<span class="macro">include_bytes!</span>(<span class="string">&quot;../../../resources/test.json&quot;</span>));
+    <span class="kw">let </span>erc20_class = get_contract_class(<span class="macro">include_bytes!</span>(<span class="string">&quot;../../../resources/erc20/erc20.json&quot;</span>));
 
     <span class="comment">// ACCOUNT CONTRACT
-    </span><span class="kw">let </span>contract_address_str = <span class="string">&quot;0000000000000000000000000000000000000000000000000000000000000101&quot;</span>;
-    <span class="kw">let </span>contract_address_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(contract_address_str).unwrap();
-
-    <span class="kw">let </span>class_hash_str = <span class="string">&quot;025ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918&quot;</span>;
-    <span class="kw">let </span>class_hash_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(class_hash_str).unwrap();
+    </span><span class="kw">let </span>contract_address_bytes =
+        &lt;[u8; <span class="number">32</span>]&gt;::from_hex(<span class="string">&quot;0000000000000000000000000000000000000000000000000000000000000001&quot;</span>).unwrap();
+    <span class="kw">let </span>class_hash_bytes =
+        &lt;[u8; <span class="number">32</span>]&gt;::from_hex(<span class="string">&quot;025ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918&quot;</span>).unwrap();
 
     <span class="comment">// TEST CONTRACT
-    </span><span class="kw">let </span>other_contract_address_str = <span class="string">&quot;0000000000000000000000000000000000000000000000000000000000001111&quot;</span>;
-    <span class="kw">let </span>other_contract_address_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(other_contract_address_str).unwrap();
+    </span><span class="kw">let </span>other_contract_address_bytes =
+        &lt;[u8; <span class="number">32</span>]&gt;::from_hex(<span class="string">&quot;0000000000000000000000000000000000000000000000000000000000001111&quot;</span>).unwrap();
+    <span class="kw">let </span>other_class_hash_bytes =
+        &lt;[u8; <span class="number">32</span>]&gt;::from_hex(<span class="string">&quot;0000000000000000000000000000000000000000000000000000000000001000&quot;</span>).unwrap();
 
-    <span class="kw">let </span>other_class_hash_str = <span class="string">&quot;0000000000000000000000000000000000000000000000000000000000001000&quot;</span>;
-    <span class="kw">let </span>other_class_hash_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(other_class_hash_str).unwrap();
+    <span class="kw">let </span>fee_token_address =
+        &lt;[u8; <span class="number">32</span>]&gt;::from_hex(<span class="string">&quot;040e59c2c182a58fb0a74349bfa4769cbbcba32547591dd3fb1def8623997d00&quot;</span>).unwrap();
+
+    <span class="comment">// ERC20 CONTRACT
+    </span><span class="kw">let </span>token_contract_address_str = <span class="string">&quot;040e59c2c182a58fb0a74349bfa4769cbbcba32547591dd3fb1def8623997d00&quot;</span>;
+    <span class="kw">let </span>token_contract_address_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(token_contract_address_str).unwrap();
+
+    <span class="kw">let </span>token_class_hash_str = <span class="string">&quot;0000000000000000000000000000000000000000000000000000000000010000&quot;</span>;
+    <span class="kw">let </span>token_class_hash_bytes = &lt;[u8; <span class="number">32</span>]&gt;::from_hex(token_class_hash_str).unwrap();
 
     GenesisConfig {
         system: SystemConfig {
@@ -379,11 +488,34 @@
             contracts: <span class="macro">vec!</span>[
                 (contract_address_bytes, class_hash_bytes),
                 (other_contract_address_bytes, other_class_hash_bytes),
+                (token_contract_address_bytes, token_class_hash_bytes),
             ],
             contract_classes: <span class="macro">vec!</span>[
                 (class_hash_bytes, ContractClassWrapper::from(account_class)),
                 (other_class_hash_bytes, ContractClassWrapper::from(test_class)),
+                (token_class_hash_bytes, ContractClassWrapper::from(erc20_class)),
             ],
+            storage: <span class="macro">vec!</span>[
+                (
+                    (
+                        fee_token_address,
+                        <span class="comment">// pedersen(sn_keccak(b&quot;ERC20_balances&quot;), 0x01) which is the key in the starknet contract for
+                        // ERC20_balances(0x01).low
+                        </span>H256::from_str(<span class="string">&quot;0x07b62949c85c6af8a50c11c22927f9302f7a2e40bc93b4c988415915b0f97f09&quot;</span>).unwrap(),
+                    ),
+                    U256::from(u128::MAX),
+                ),
+                (
+                    (
+                        fee_token_address,
+                        <span class="comment">// pedersen(sn_keccak(b&quot;ERC20_balances&quot;), 0x01) + 1 which is the key in the starknet contract
+                        // for ERC20_balances(0x01).high
+                        </span>H256::from_str(<span class="string">&quot;0x07b62949c85c6af8a50c11c22927f9302f7a2e40bc93b4c988415915b0f97f0A&quot;</span>).unwrap(),
+                    ),
+                    U256::from(u128::MAX),
+                ),
+            ],
+            fee_token_address,
             _phantom: Default::default(),
         },
     }
