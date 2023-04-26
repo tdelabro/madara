@@ -1,5 +1,5 @@
 //! Starknet pallet custom types.
-use mp_starknet::execution::ContractAddressWrapper;
+use mp_starknet::execution::types::ContractAddressWrapper;
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::Deserialize;
