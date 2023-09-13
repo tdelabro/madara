@@ -15,6 +15,11 @@
 - feat: print development accounts at node startup
 - test: add test to check tx signed by OZ account can be signed with Argent pk
 - buid: add rust-analyzer to toolchain components
+- replace all calls to `transmute` by calls `from_raw_parts`
+- big transaction type refactoring
+- impl tx execution and verification as traits
+- reduce the amount of data stored in the runtime and use the Substrate block to
+  as source of data in the client
 
 ## v0.2.0
 

@@ -1,21 +1,28 @@
 use frame_support::assert_ok;
-use sp_runtime::DispatchError;
+use mp_starknet::execution::types::Felt252Wrapper;
+use mp_starknet::transaction::UserTransaction;
 
 use super::mock::default_mock::*;
 use super::mock::*;
-use crate::tests::get_invoke_dummy;
-
+use crate::tests::{get_invoke_dummy, get_storage_read_write_dummy};
 #[test]
 fn estimates_tx_fee_successfully() {
     new_test_ext::<MockRuntime>().execute_with(|| {
         basic_test_setup(2);
 
-        let mut tx = get_invoke_dummy();
-        tx.is_query = true;
+        let tx = get_invoke_dummy(Felt252Wrapper::ZERO);
+        let tx = UserTransaction::Invoke(tx.into());
 
-        let (actual, overall) = Starknet::estimate_fee(tx).unwrap();
+        let (actual, l1_gas_usage) = Starknet::estimate_fee(tx).unwrap();
         assert!(actual > 0, "actual fee is missing");
-        assert!(overall > 0, "overall fee is missing");
+        assert!(l1_gas_usage == 0, "this should not be charged any l1_gas as it does not store nor send messages");
+
+        let tx = get_storage_read_write_dummy();
+        let tx = UserTransaction::Invoke(tx.into());
+
+        let (actual, l1_gas_usage) = Starknet::estimate_fee(tx).unwrap();
+        assert!(actual > 0, "actual fee is missing");
+        assert!(l1_gas_usage > 0, "this should be charged l1_gas as it store a value to storage");
     });
 }
 
@@ -24,25 +31,9 @@ fn estimates_tx_fee_with_query_version() {
     new_test_ext::<MockRuntime>().execute_with(|| {
         basic_test_setup(2);
 
-        let tx = get_invoke_dummy();
-
-        let estimation_txn = Starknet::estimate_fee(tx);
-        assert!(estimation_txn.is_err());
-        assert!(matches!(
-            estimation_txn.unwrap_err(),
-            DispatchError::Other("Cannot estimate_fee with is_query = false")
-        ));
-    });
-}
-
-#[test]
-fn estimate_does_not_add_to_pending() {
-    new_test_ext::<MockRuntime>().execute_with(|| {
-        basic_test_setup(2);
-
-        let mut tx = get_invoke_dummy();
-        tx.is_query = true;
+        let tx = get_invoke_dummy(Felt252Wrapper::ZERO);
         let pre_storage = Starknet::pending().len();
+        let tx = UserTransaction::Invoke(tx.into());
 
         assert_ok!(Starknet::estimate_fee(tx));
 
