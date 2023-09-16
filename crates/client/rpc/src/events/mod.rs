@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use std::iter::Skip;
 use std::vec::IntoIter;
 
@@ -23,6 +20,9 @@ use starknet_ff::FieldElement;
 use crate::errors::StarknetRpcApiError;
 use crate::types::{ContinuationToken, RpcEventFilter};
 use crate::Starknet;
+
+#[cfg(test)]
+mod tests;
 
 impl<A: ChainApi, B, BE, C, P, H> Starknet<A, B, BE, C, P, H>
 where
@@ -101,28 +101,31 @@ where
     /// * `EventsPage` - The filtered events with continuation token
     pub fn filter_events(&self, filter: RpcEventFilter) -> RpcResult<EventsPage> {
         // get filter values
-        let mut current_block = filter.from_block;
+        let continuation_token = filter.continuation_token;
+        // skip blocks with continuation token block number
+        let from_block = filter.from_block + continuation_token.block_n;
+        let mut current_block = from_block;
         let to_block = filter.to_block;
         let from_address = filter.from_address;
         let keys = filter.keys;
-        let continuation_token = filter.continuation_token;
         let chunk_size = filter.chunk_size;
-
-        // skip blocks with continuation token block number
-        current_block += continuation_token.block_n;
 
         let mut filtered_events = Vec::new();
 
         // Iterate on block range
         while current_block <= to_block {
-            let emmited_events = self.get_block_events(current_block)?;
-            let emitted_events_len = emmited_events.len();
-            // check if continuation_token.event_n is not too big
-            if (emitted_events_len as u64) < continuation_token.event_n {
-                return Err(StarknetRpcApiError::InvalidContinuationToken.into());
+            let emitted_events = self.get_block_events(current_block)?;
+            let mut unchecked_events = emitted_events.len();
+            let mut events = emitted_events.clone().into_iter().skip(0);
+            if current_block == from_block {
+                // check if continuation_token.event_n is not too big
+                if (unchecked_events as u64) < continuation_token.event_n {
+                    return Err(StarknetRpcApiError::InvalidContinuationToken.into());
+                }
+                unchecked_events -= continuation_token.event_n as usize;
+                events = emitted_events.into_iter().skip(continuation_token.event_n as usize);
             }
 
-            let events = emmited_events.into_iter().skip(continuation_token.event_n as usize);
             let mut n_visited = 0;
             let block_filtered_events = filter_events_by_params(
                 events,
@@ -135,14 +138,12 @@ where
             filtered_events.extend(block_filtered_events);
 
             if filtered_events.len() == chunk_size as usize {
-                let token = if current_block < to_block || n_visited < emitted_events_len {
-                    Some(
-                        ContinuationToken {
-                            block_n: current_block,
-                            event_n: continuation_token.event_n + n_visited as u64,
-                        }
-                        .to_string(),
-                    )
+                let token = if current_block < to_block || n_visited < unchecked_events {
+                    let mut event_n = n_visited as u64;
+                    if continuation_token.block_n == current_block {
+                        event_n += continuation_token.event_n;
+                    }
+                    Some(ContinuationToken { block_n: current_block - from_block, event_n }.to_string())
                 } else {
                     None
                 };
@@ -176,19 +177,25 @@ pub fn filter_events_by_params<'a, 'b: 'a>(
     keys: &'a [Vec<FieldElement>],
     max_results: usize,
     n_visited: &'b mut usize,
-) -> impl Iterator<Item = EmittedEvent> + 'a {
-    events
-        .filter(move |event| {
-            *n_visited += 1;
+) -> Vec<EmittedEvent> {
+    let mut filtered_events = vec![];
 
-            let match_from_address = address.map_or(true, |addr| addr.0 == event.from_address);
-            // Based on https://github.com/starkware-libs/papyrus
-            let match_keys = keys
-                .iter()
-                .enumerate()
-                .all(|(i, keys)| event.keys.len() > i && (keys.is_empty() || keys.contains(&event.keys[i])));
+    // Iterate on block events.
+    for event in events {
+        *n_visited += 1;
+        let match_from_address = address.map_or(true, |addr| addr.0 == event.from_address);
+        // Based on https://github.com/starkware-libs/papyrus
+        let match_keys = keys
+            .iter()
+            .enumerate()
+            .all(|(i, keys)| event.keys.len() > i && (keys.is_empty() || keys.contains(&event.keys[i].into())));
 
-            match_from_address && match_keys
-        })
-        .take(max_results)
+        if match_from_address && match_keys {
+            filtered_events.push(event);
+            if filtered_events.len() >= max_results {
+                break;
+            }
+        }
+    }
+    filtered_events
 }
