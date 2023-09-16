@@ -786,7 +786,7 @@ describeDevMadara(
           const obj: any = pending.toHuman();
           return {
             type: obj.method.method.toUpperCase(),
-            nonce: toHex(obj.method.args.transaction.nonce),
+            nonce: toHex(obj.method.args.transaction.V1.nonce),
           };
         });
 
