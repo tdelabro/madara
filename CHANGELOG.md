@@ -10,6 +10,18 @@
 - fix: Change serialization of bitvec to &[u8] in merkle tree to avoid memory
   uninitialized
 - chore: change SCARB config version for foundry CI
+- refactor: use `map` in `estimate_fee` to stop computation on error
+- feat(data-availability): extend eth config with poll interval
+- fix(snos-output): expose snos codec, remove unused `get_starknet_messages`
+  runtime method, and unnecessary mp-snos-output dependencies
+- feat(program-hash): add new pallete constant for Starknet OS progam hash;
+  expose runtime getter method; add dedicated crate to manage versions
+- feat(runtime): expose fee token address getter method
+- feat(settlement): run client thread responsible for pushing state updates
+  and messaging on Ethereum
+- feat(settlement): starknet core contract tests with anvil sandbox
+- fix(rpc-test): incorrect node url
+- feat(settlement): e2e test with Madara node settling on Ethereum contract
 
 ## v0.6.0
 
@@ -47,7 +59,6 @@
 - chore(data-availability-avail): implement fire and forget, and add ws
   reconnection logic
 - chore: update `polkadot-sdk` to `release-polkadot-v1.3.0`
-- refactor: use `map` in `estimate_fee` to stop computation on error
 
 ## v0.5.0
 
