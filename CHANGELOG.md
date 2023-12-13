@@ -10,7 +10,7 @@
 - fix: Change serialization of bitvec to &[u8] in merkle tree to avoid memory
   uninitialized
 - chore: change SCARB config version for foundry CI
-- refactor: use `map` in `estimate_fee` to stop computation on error
+- fix(node/commands): md5 are aslo checked when running setup --from-local
 - feat(data-availability): extend eth config with poll interval
 - fix(snos-output): expose snos codec, remove unused `get_starknet_messages`
   runtime method, and unnecessary mp-snos-output dependencies
@@ -22,6 +22,7 @@
 - feat(settlement): starknet core contract tests with anvil sandbox
 - fix(rpc-test): incorrect node url
 - feat(settlement): e2e test with Madara node settling on Ethereum contract
+- refactor: use `map` in `estimate_fee` to stop computation on error
 
 ## v0.6.0
 
