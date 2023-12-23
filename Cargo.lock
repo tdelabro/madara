@@ -6829,6 +6829,7 @@ dependencies = [
  "mp-messages",
  "mp-transactions",
  "parity-scale-codec",
+ "pretty_assertions",
  "scale-info",
  "sp-core 21.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.3.0)",
  "starknet_api",
